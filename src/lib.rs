@@ -1,4 +1,5 @@
 mod utils;
+use fixedbitset::FixedBitSet;
 use std::fmt;
 use wasm_bindgen::prelude::*;
 
@@ -9,18 +10,10 @@ use wasm_bindgen::prelude::*;
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Cell {
-    Dead = 0,
-    Alive = 1,
-}
-
-#[wasm_bindgen]
 pub struct Universe {
     width: u32,
     height: u32,
-    cells: Vec<Cell>,
+    cells: FixedBitSet,
 }
 #[wasm_bindgen]
 impl Universe {
@@ -31,22 +24,17 @@ impl Universe {
         self.height
     }
 
-    pub fn cells(&self) -> *const Cell {
-        self.cells.as_ptr()
+    pub fn cells(&self) -> *const u32 {
+        self.cells.as_slice().as_ptr()
     }
     pub fn new() -> Universe {
         let width = 128;
         let height = 128;
-
-        let cells = (0..width * height)
-            .map(|i| {
-                if i % 2 == 0 || i % 7 == 0 || i % 9 == 0 {
-                    Cell::Alive
-                } else {
-                    Cell::Dead
-                }
-            })
-            .collect();
+        let size = (width * height) as usize;
+        let mut cells = FixedBitSet::with_capacity(size);
+        for i in 0..size {
+            cells.set(i, i % 2 == 0 || i % 7 == 0 || i % 9 == 0)
+        }
         Universe {
             width,
             height,
@@ -83,17 +71,17 @@ impl Universe {
                 let live_neighbors = self.live_neighbor_count(row, column);
                 let next_cell = match (cell, live_neighbors) {
                     // Rule 1
-                    (Cell::Alive, x) if x < 2 => Cell::Dead,
+                    (true, x) if x < 2 => false,
                     // Rule 2
-                    (Cell::Alive, 2) | (Cell::Alive, 3) => Cell::Alive,
+                    (true, 2) | (true, 3) => true,
                     // Rule 3
-                    (Cell::Alive, x) if x > 3 => Cell::Dead,
+                    (true, x) if x > 3 => false,
                     // Rule 4
-                    (Cell::Dead, 3) => Cell::Alive,
+                    (false, 3) => true,
                     (otherwise, _) => otherwise,
                 };
 
-                next[idx] = next_cell;
+                next.set(idx, next_cell);
             }
         }
         self.cells = next;
@@ -103,7 +91,7 @@ impl fmt::Display for Universe {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for line in self.cells.as_slice().chunks(self.width as usize) {
             for &cell in line {
-                let symbol = if cell == Cell::Dead { '◻' } else { '◼' };
+                let symbol = if cell == 0 { '◻' } else { '◼' };
                 write!(f, "{}", symbol)?;
             }
             write!(f, "\n")?;
