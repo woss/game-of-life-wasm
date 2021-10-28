@@ -24,13 +24,23 @@ pub struct Universe {
 }
 #[wasm_bindgen]
 impl Universe {
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn cells(&self) -> *const Cell {
+        self.cells.as_ptr()
+    }
     pub fn new() -> Universe {
-        let width = 64;
-        let height = 64;
+        let width = 128;
+        let height = 128;
 
         let cells = (0..width * height)
             .map(|i| {
-                if i % 2 == 0 || i % 7 == 0 {
+                if i % 2 == 0 || i % 7 == 0 || i % 9 == 0 {
                     Cell::Alive
                 } else {
                     Cell::Dead
